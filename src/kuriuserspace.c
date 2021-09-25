@@ -4,7 +4,7 @@
 #include <xorg/xf86.h>
 #include <xorg/xf86Xinput.h>
 #include <xorg/xf86Module.h>
-#include <xorg/xorgVersion.h>
+#include <xorg-server.h>
 
 static const char *default_options[] =
         {

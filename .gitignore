@@ -16,3 +16,8 @@ xorg-kuriuserspace.pc
 
 .deps
 .idea
+.libs
+
+*.lo
+*.la
+*.4
