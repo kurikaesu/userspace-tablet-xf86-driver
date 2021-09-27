@@ -35,4 +35,7 @@ AM_CPPFLAGS =-I$(top_srcdir)/include $(LIBEVDEV_CFLAGS)
 @DRIVER_NAME@_drv_ladir = @inputdir@
 
 @DRIVER_NAME@_drv_la_SOURCES = @DRIVER_NAME@.c \
-                               @DRIVER_NAME@.h
+                               @DRIVER_NAME@.h \
+                               xf86Kuri.c \
+                               xf86Kuri.h \
+                               definitions.h

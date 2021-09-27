@@ -5,6 +5,7 @@
 #include <xorg/xf86Xinput.h>
 #include <xorg/xf86Module.h>
 #include <xorg-server.h>
+#include "definitions.h"
 
 static const char *default_options[] =
         {
@@ -17,11 +18,49 @@ static const char *default_options[] =
         NULL
         };
 
+static int kuriAllocate(InputInfoPtr pInfo) {
+    struct KuriDeviceRec* priv = NULL;
+
+    priv = calloc(1, sizeof(struct KuriDeviceRec));
+    if (!priv) {
+        goto error;
+    }
+
+    priv->next = NULL;
+    priv->pInfo = pInfo;
+
+    priv->nPressCtrl[0] = 0;
+    priv->nPressCtrl[1] = 0;
+    priv->nPressCtrl[2] = 100;
+    priv->nPressCtrl[3] = 100;
+
+    return 1;
+error:
+    free(priv);
+    return 0;
+}
+
 static void kuriUninit(InputDriverPtr drv, InputInfoPtr pInfo, int flags) {
 
 }
 
 static int kuriPreInit(InputDriverPtr drv, InputInfoPtr pInfo, int flags) {
+    char *type, *device;
+
+    device = xf86SetStrOption(pInfo->options, "Device", NULL);
+    type = xf86SetStrOption(pInfo->options, "Type", NULL);
+
+    if (!kuriAllocate(pInfo)) {
+        return -1;
+    }
+
+    if (!device) {
+        return -1;
+    }
+
+    free(type);
+
+
     return 0;
 }
 
@@ -64,7 +103,7 @@ static XF86ModuleVersionInfo kuriUserspaceVersionRec =
             {0, 0, 0, 0}
         };
 
-_X_EXPORT XF86ModuleData kuriUserspaceModuleData =
+_X_EXPORT XF86ModuleData kuriuserspaceModuleData =
         {
         &kuriUserspaceVersionRec,
         kuriUserspacePlug,
