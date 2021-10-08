@@ -6,6 +6,8 @@
 #include <xorg/xf86Module.h>
 #include <xorg-server.h>
 #include "definitions.h"
+#include "xf86Kuri.h"
+#include "kuriCommon.h"
 
 static const char *default_options[] =
         {
@@ -26,6 +28,11 @@ static int kuriAllocate(InputInfoPtr pInfo) {
         goto error;
     }
 
+    pInfo->device_control = kuriModule.DevProc;
+    pInfo->read_input = kuriModule.DevReadInput;
+    pInfo->dev = NULL;
+    pInfo->private = priv;
+
     priv->next = NULL;
     priv->pInfo = pInfo;
 
@@ -33,6 +40,8 @@ static int kuriAllocate(InputInfoPtr pInfo) {
     priv->nPressCtrl[1] = 0;
     priv->nPressCtrl[2] = 100;
     priv->nPressCtrl[3] = 100;
+
+    priv->common = kuriNewCommon();
 
     return 1;
 error:
@@ -51,17 +60,17 @@ static int kuriPreInit(InputDriverPtr drv, InputInfoPtr pInfo, int flags) {
     type = xf86SetStrOption(pInfo->options, "Type", NULL);
 
     if (!kuriAllocate(pInfo)) {
-        return -1;
+        return BadMatch;
     }
 
     if (!device) {
-        return -1;
+        return BadMatch;
     }
 
     free(type);
 
 
-    return 0;
+    return Success;
 }
 
 static InputDriverRec KURIUSERSPACE =

@@ -38,4 +38,5 @@ AM_CPPFLAGS =-I$(top_srcdir)/include $(LIBEVDEV_CFLAGS)
                                @DRIVER_NAME@.h \
                                xf86Kuri.c \
                                xf86Kuri.h \
+                               kuriCommon.c \
                                definitions.h

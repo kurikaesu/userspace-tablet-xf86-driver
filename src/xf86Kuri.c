@@ -21,18 +21,23 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #endif
 
 #include "xf86Kuri.h"
+#include "definitions.h"
+#include <unistd.h>
+#include <errno.h>
 
 static void kuriDevReadInput(InputInfoPtr pInfo);
+static int kuriDevProc(DeviceIntPtr pDev, int what);
 
 struct KuriModule kuriModule =
 {
         NULL,
 
         kuriDevReadInput,
+        kuriDevProc,
 };
 
 static void kuriDevReadInput(InputInfoPtr pInfo) {
-    int loop = 0;
+    int loop;
     const int maxReads = 10;
 
     for (loop = 0; loop < maxReads; ++loop) {
@@ -41,18 +46,119 @@ static void kuriDevReadInput(InputInfoPtr pInfo) {
     }
 }
 
+int parsePacket(InputInfoPtr pInfo, const unsigned char* data, int len) {
+    struct KuriDeviceRec* priv = (struct KuriDeviceRec*)pInfo->private;
+    struct KuriCommonRec* common = priv->common;
+
+    xf86Msg(X_INFO, "Message start\n");
+    for (int i = 0; i < len; ++i) {
+        xf86Msg(X_INFO, "%02X", data[i]);
+    }
+    xf86Msg(X_INFO, ": End of message\n");
+
+    return len;
+}
+
 int kuriReadPacket(InputInfoPtr pInfo) {
-    int len, remaining;
-    void* buffer;
+    int len, remaining, cnt, pos;
+    struct KuriDeviceRec* priv = (struct KuriDeviceRec*)pInfo->private;
+    struct KuriCommonRec* common = priv->common;
 
-    remaining = 10;
+    int n = xf86WaitForInput(pInfo->fd, 0);
+    if (n > 0) {
+        remaining = sizeof(common->buffer) - common->bufpos;
 
-    buffer = calloc(1, remaining);
-    len = xf86ReadSerial(pInfo->fd, buffer, remaining);
+        len = xf86ReadSerial(pInfo->fd, common->buffer + common->bufpos, remaining);
 
-    if (len <= 0) {
-        return -1;
+        if (len <= 0) {
+            if (errno == ENODEV) {
+                xf86RemoveEnabledDevice(pInfo);
+            }
+            return FALSE;
+        }
+
+        common->bufpos += len;
+        len = common->bufpos;
+        pos = 0;
+        xf86Msg(X_INFO, "Got %d sized message\n", len);
+
+        while (len > 0) {
+            cnt = parsePacket(pInfo, common->buffer + pos, len);
+            if (cnt <= 0) {
+                break;
+            }
+            pos += cnt;
+            len -= cnt;
+        }
+
+        common->bufpos = len;
+
+        return TRUE;
     }
 
-    return 0;
+    return FALSE;
+}
+
+static int kuriDevProc(DeviceIntPtr pDev, int what) {
+    InputInfoPtr pInfo = (InputInfoPtr)pDev->public.devicePrivate;
+
+    int rc = !Success;
+
+    switch (what) {
+        case DEVICE_INIT:
+
+            break;
+
+        case DEVICE_ON:
+            xf86Msg(X_INFO, "%s: On.\n", pInfo->name);
+            if (pDev->public.on) {
+                break;
+            }
+            pInfo->fd = xf86OpenSerial(pInfo->options);
+            if (pInfo->fd < 0) {
+                xf86Msg(X_ERROR, "%s: cannot open device.\n", pInfo->name);
+                return BadRequest;
+            }
+
+            xf86FlushInput(pInfo->fd);
+            xf86AddEnabledDevice(pInfo);
+            pDev->public.on = TRUE;
+
+            break;
+
+        case DEVICE_OFF:
+            xf86Msg(X_INFO, "%s: Off.\n", pInfo->name);
+            if (!pDev->public.on) {
+                break;
+            }
+            xf86RemoveEnabledDevice(pInfo);
+            close(pInfo->fd);
+            pInfo->fd = -1;
+            pDev->public.on = FALSE;
+            break;
+
+        case DEVICE_CLOSE:
+
+            break;
+
+#if GET_ABI_MAJOR(ABI_XINPUT_VERSION) * 100 + GET_ABI_MINOR(ABI_XINPUT_VERSION) >= 1901
+        case DEVICE_ABORT:
+            break;
+#endif
+
+        default:
+            xf86Msg(X_ERROR, "Invalid mode.");
+            goto out;
+    }
+
+    rc = Success;
+
+out:
+
+    if (rc != Success) {
+        // Something bad happened
+        xf86Msg(X_ERROR, "Was not able to handle devProc");
+    }
+
+    return rc;
 }

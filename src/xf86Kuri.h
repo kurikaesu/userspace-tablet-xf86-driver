@@ -28,7 +28,10 @@ struct KuriModule {
     InputDriverPtr dev;
 
     void (*DevReadInput)(InputInfoPtr pInfo);
+    int (*DevProc)(DeviceIntPtr pDev, int what);
 };
+
+extern struct KuriModule kuriModule;
 
 int kuriReadPacket(InputInfoPtr pInfo);
 

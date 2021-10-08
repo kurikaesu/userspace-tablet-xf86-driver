@@ -16,39 +16,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef XF86_INPUT_KURIUSERSPACE_DEFINITIONS_H
-#define XF86_INPUT_KURIUSERSPACE_DEFINITIONS_H
+#ifndef XF86_INPUT_KURIUSERSPACE_KURICOMMON_H
+#define XF86_INPUT_KURIUSERSPACE_KURICOMMON_H
 
-#include <xorg/xf86.h>
-#include <xorg/xf86Xinput.h>
-#include <xorg/xf86Module.h>
-#include <xorg/xf86_OSproc.h>
+#include "definitions.h"
 
-#define BUFFER_SIZE 256
+struct KuriCommonRec* kuriNewCommon(void);
 
-struct KuriDeviceRec {
-    char* name;
-    struct KuriDeviceRec* next;
-    InputInfoPtr pInfo;
-    int debugLevel;
-
-    int topX;
-    int topY;
-    int bottomX;
-    int bottomY;
-    int resolutionX;
-    int resolutionY;
-
-    struct KuriCommonRec* common;
-
-    int nPressCtrl[4];
-};
-
-struct KuriCommonRec {
-    int kuriPktLength;
-
-    int bufpos;
-    unsigned char buffer[BUFFER_SIZE];
-};
-
-#endif //XF86_INPUT_KURIUSERSPACE_DEFINITIONS_H
+#endif //XF86_INPUT_KURIUSERSPACE_KURICOMMON_H
