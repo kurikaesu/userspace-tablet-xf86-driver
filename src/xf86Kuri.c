@@ -34,7 +34,6 @@ static int kuriDevProc(DeviceIntPtr pDev, int what);
 struct KuriModule kuriModule =
 {
         NULL,
-
         kuriDevReadInput,
         kuriDevProc,
 };
@@ -65,7 +64,7 @@ void dispatchEvents(InputInfoPtr pInfo) {
 
 
     // Start sending digitizer events
-    xf86PostMotionEventP(pInfo->dev, 0, 0, 2, valuators);
+    xf86PostMotionEventP(pInfo->dev, 1, 0, 2, valuators);
 }
 
 void parseAbsEvent(struct KuriCommonRec* common, struct input_event* event) {
@@ -244,7 +243,17 @@ static int kuriDevProc(DeviceIntPtr pDev, int what) {
 
     switch (what) {
         case DEVICE_INIT:
-            if (InitValuatorClassDeviceStruct(pInfo->dev, priv->naxes, axis_labels, GetMotionHistorySize(), Absolute) == FALSE) {
+            if (InitFocusClassDeviceStruct(pInfo->dev) == FALSE) {
+                xf86Msg(X_ERROR, "%s: unable to init Focus class device\n", pInfo->name);
+                goto out;
+            }
+
+            if (InitProximityClassDeviceStruct(pInfo->dev) == FALSE) {
+                xf86Msg(X_ERROR, "%s: unable to init proximity class device\n", pInfo->name);
+                goto out;
+            }
+
+            if (InitValuatorClassDeviceStruct(pInfo->dev, priv->naxes, axis_labels, GetMotionHistorySize(), Absolute | OutOfProximity) == FALSE) {
                 xf86Msg(X_ERROR, "%s: unable to allocate Valuator class device\n", pInfo->name);
                 goto out;
             }

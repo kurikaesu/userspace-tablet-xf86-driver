@@ -27,7 +27,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 struct KuriModule {
     InputDriverPtr dev;
-
     void (*DevReadInput)(InputInfoPtr pInfo);
     int (*DevProc)(DeviceIntPtr pDev, int what);
 };
