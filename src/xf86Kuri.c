@@ -24,7 +24,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "definitions.h"
 #include <unistd.h>
 #include <errno.h>
-#include <linux/input.h>
 
 static void kuriDevReadInput(InputInfoPtr pInfo);
 static int kuriDevProc(DeviceIntPtr pDev, int what);
@@ -52,8 +51,6 @@ void parseEvent(InputInfoPtr pInfo, const struct input_event* event) {
 }
 
 int parsePacket(InputInfoPtr pInfo, const unsigned char* data, int len) {
-    struct KuriDeviceRec* priv = (struct KuriDeviceRec*)pInfo->private;
-    struct KuriCommonRec* common = priv->common;
     struct input_event event;
 
     if (len < sizeof(struct input_event)) {

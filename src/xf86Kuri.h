@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <xorg/xf86Xinput.h>
 #include <xorg/xf86Module.h>
 #include <xorg/xf86_OSproc.h>
+#include <linux/input.h>
 
 struct KuriModule {
     InputDriverPtr dev;
@@ -34,5 +35,7 @@ struct KuriModule {
 extern struct KuriModule kuriModule;
 
 int kuriReadPacket(InputInfoPtr pInfo);
+void parseEvent(InputInfoPtr pInfo, const struct input_event* event);
+int parsePacket(InputInfoPtr pInfo, const unsigned char* data, int len);
 
 #endif //XF86_INPUT_KURIUSERSPACE_XF86KURI_H
