@@ -24,6 +24,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "definitions.h"
 #include <unistd.h>
 #include <errno.h>
+#include <linux/input.h>
 
 static void kuriDevReadInput(InputInfoPtr pInfo);
 static int kuriDevProc(DeviceIntPtr pDev, int what);
@@ -46,17 +47,22 @@ static void kuriDevReadInput(InputInfoPtr pInfo) {
     }
 }
 
+void parseEvent(InputInfoPtr pInfo, const struct input_event* event) {
+    xf86Msg(X_INFO, "Event: type:(%d) code:(%d) value:(%d)\n", event->type, event->code, event->value);
+}
+
 int parsePacket(InputInfoPtr pInfo, const unsigned char* data, int len) {
     struct KuriDeviceRec* priv = (struct KuriDeviceRec*)pInfo->private;
     struct KuriCommonRec* common = priv->common;
+    struct input_event event;
 
-    xf86Msg(X_INFO, "Message start\n");
-    for (int i = 0; i < len; ++i) {
-        xf86Msg(X_INFO, "%02X", data[i]);
+    if (len < sizeof(struct input_event)) {
+        return 0;
     }
-    xf86Msg(X_INFO, ": End of message\n");
 
-    return len;
+    memcpy(&event, data, sizeof(event));
+    parseEvent(pInfo, &event);
+    return sizeof(struct input_event);
 }
 
 int kuriReadPacket(InputInfoPtr pInfo) {
@@ -80,7 +86,6 @@ int kuriReadPacket(InputInfoPtr pInfo) {
         common->bufpos += len;
         len = common->bufpos;
         pos = 0;
-        xf86Msg(X_INFO, "Got %d sized message\n", len);
 
         while (len > 0) {
             cnt = parsePacket(pInfo, common->buffer + pos, len);
