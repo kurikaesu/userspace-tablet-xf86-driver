@@ -23,8 +23,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <xorg/xf86Xinput.h>
 #include <xorg/xf86Module.h>
 #include <xorg/xf86_OSproc.h>
+#include <linux/input.h>
 
 #define BUFFER_SIZE 256
+#define MAX_EVENTS 1024
+
+struct KuriDeviceState {
+    InputInfoPtr pInfo;
+    int x;
+    int y;
+    int pressure;
+    int tiltx;
+    int tilty;
+};
 
 struct KuriDeviceRec {
     char* name;
@@ -39,6 +50,8 @@ struct KuriDeviceRec {
     int resolutionX;
     int resolutionY;
 
+    int naxes;
+
     struct KuriCommonRec* common;
 
     int nPressCtrl[4];
@@ -49,6 +62,11 @@ struct KuriCommonRec {
 
     int bufpos;
     unsigned char buffer[BUFFER_SIZE];
+
+    int eventCount;
+    struct input_event events[MAX_EVENTS];
+
+    struct KuriDeviceState* state;
 };
 
 #endif //XF86_INPUT_KURIUSERSPACE_DEFINITIONS_H

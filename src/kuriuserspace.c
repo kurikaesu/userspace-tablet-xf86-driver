@@ -30,11 +30,22 @@ static int kuriAllocate(InputInfoPtr pInfo) {
 
     pInfo->device_control = kuriModule.DevProc;
     pInfo->read_input = kuriModule.DevReadInput;
+    pInfo->control_proc = NULL;
+    pInfo->switch_mode = NULL;
     pInfo->dev = NULL;
     pInfo->private = priv;
 
     priv->next = NULL;
     priv->pInfo = pInfo;
+
+    // Just hardcoding some dummy values for testing
+    priv->topX = 0;
+    priv->bottomX = 50000;
+    priv->topY = 0;
+    priv->bottomY = 30000;
+    priv->resolutionX = 140;
+    priv->resolutionY = 140;
+    priv->naxes = 6;
 
     priv->nPressCtrl[0] = 0;
     priv->nPressCtrl[1] = 0;
@@ -42,6 +53,8 @@ static int kuriAllocate(InputInfoPtr pInfo) {
     priv->nPressCtrl[3] = 100;
 
     priv->common = kuriNewCommon();
+    priv->common->state = calloc(1, sizeof(struct KuriDeviceState));
+    priv->common->state->pInfo = pInfo;
 
     return 1;
 error:
