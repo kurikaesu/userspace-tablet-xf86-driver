@@ -9,6 +9,12 @@
 #include "xf86Kuri.h"
 #include "kuriCommon.h"
 
+#define BITS_PER_LONG	(sizeof(long) * 8)
+#define NBITS(x)	((((x)-1)/BITS_PER_LONG)+1)
+#define LONG(x)		((x)/BITS_PER_LONG)
+#define BIT(x)		(1UL<<((x) & (BITS_PER_LONG - 1)))
+#define ISBITSET(x,y)	((x)[LONG(y)] & BIT(y))
+
 static const char *default_options[] =
         {
         "StopBits", "1",
@@ -39,13 +45,8 @@ static int kuriAllocate(InputInfoPtr pInfo) {
     priv->pInfo = pInfo;
 
     // Just hardcoding some dummy values for testing
-    priv->topX = 0;
-    priv->bottomX = 50000;
-    priv->topY = 0;
-    priv->bottomY = 30000;
-    priv->resolutionX = 140;
-    priv->resolutionY = 140;
     priv->naxes = 6;
+    priv->maxCurve = 8191;
 
     priv->nPressCtrl[0] = 0;
     priv->nPressCtrl[1] = 0;
@@ -66,6 +67,62 @@ static void kuriUninit(InputDriverPtr drv, InputInfoPtr pInfo, int flags) {
 
 }
 
+int getRanges(InputInfoPtr pInfo) {
+    struct input_absinfo absinfo;
+    unsigned long ev[NBITS(EV_CNT)] = {0};
+    unsigned long abs[NBITS(ABS_MAX)] = {0};
+    struct KuriDeviceRec* priv = (struct KuriDeviceRec*)pInfo->private;
+    struct KuriCommonRec* common = priv->common;
+
+    if (ioctl(pInfo->fd, EVIOCGBIT(0, sizeof(ev)), ev) < 0) {
+        xf86Msg(X_ERROR, "%s: unable to get ioctl event bits.\n", pInfo->name);
+        return !Success;
+    }
+
+    if (!ISBITSET(ev, EV_ABS)) {
+        xf86Msg(X_ERROR, "%s: no abs bits\n", pInfo->name);
+        return !Success;
+    }
+
+    if (ioctl(pInfo->fd, EVIOCGBIT(EV_ABS, sizeof(abs)), abs) < 0) {
+        xf86Msg(X_ERROR, "%s: unable to ioctl max values.\n", pInfo->name);
+        return !Success;
+    }
+
+    if (ioctl(pInfo->fd, EVIOCGABS(ABS_X), &absinfo) < 0) {
+        xf86Msg(X_ERROR, "%s: unable to ioctl xmax value.\n", pInfo->name);
+        return !Success;
+    }
+
+    priv->topX = absinfo.minimum;
+    priv->bottomX = absinfo.maximum;
+
+    if (absinfo.resolution > 0) {
+        priv->resolutionX = absinfo.resolution * 1000;
+    }
+
+    if (ioctl(pInfo->fd, EVIOCGABS(ABS_Y), &absinfo) < 0) {
+        xf86Msg(X_ERROR, "%s: unable to ioctl ymax value.\n", pInfo->name);
+        return !Success;
+    }
+
+    priv->topY = absinfo.minimum;
+    priv->bottomY = absinfo.maximum;
+
+    if (absinfo.resolution > 0) {
+        priv->resolutionY = absinfo.resolution * 1000;
+    }
+
+    if (ISBITSET(abs, ABS_PRESSURE) && !ioctl(pInfo->fd, EVIOCGABS(ABS_PRESSURE), &absinfo)) {
+
+    }
+
+    xf86Msg(X_INFO, "%s: Size probed to X: %d Y: %d\n", pInfo->name, priv->bottomX, priv->bottomY);
+    xf86Msg(X_INFO, "%s: Resolution probed to X: %d Y: %d\n", pInfo->name, priv->resolutionX, priv->resolutionY);
+
+    return Success;
+}
+
 static int kuriPreInit(InputDriverPtr drv, InputInfoPtr pInfo, int flags) {
     char *type, *device;
 
@@ -81,7 +138,7 @@ static int kuriPreInit(InputDriverPtr drv, InputInfoPtr pInfo, int flags) {
     }
 
     free(type);
-
+    getRanges(pInfo);
 
     return Success;
 }

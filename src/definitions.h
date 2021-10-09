@@ -32,9 +32,12 @@ struct KuriDeviceState {
     InputInfoPtr pInfo;
     int x;
     int y;
+    int buttons;
     int pressure;
     int tiltx;
     int tilty;
+    int rotation;
+    int proximity;
 };
 
 struct KuriDeviceRec {
@@ -49,6 +52,7 @@ struct KuriDeviceRec {
     int bottomY;
     int resolutionX;
     int resolutionY;
+    int maxCurve;
 
     int naxes;
 
@@ -67,6 +71,7 @@ struct KuriCommonRec {
     struct input_event events[MAX_EVENTS];
 
     struct KuriDeviceState* state;
+    struct KuriDeviceState oldState;
 };
 
 #endif //XF86_INPUT_KURIUSERSPACE_DEFINITIONS_H

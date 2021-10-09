@@ -50,21 +50,27 @@ static void kuriDevReadInput(InputInfoPtr pInfo) {
 
 void dispatchEvents(InputInfoPtr pInfo) {
     int valuators[6];
+    unsigned int mask;
     struct KuriDeviceRec* priv = (struct KuriDeviceRec*)pInfo->private;
     struct KuriCommonRec* common = priv->common;
     struct KuriDeviceState* state = common->state;
 
     valuators[0] = state->x;
     valuators[1] = state->y;
-    valuators[2] = 0;
+    valuators[2] = state->pressure;
     valuators[3] = state->tiltx;
     valuators[4] = state->tilty;
 
-    xf86Msg(X_INFO, "Valuators-> x: %d, y: %d\n", valuators[0], valuators[1]);
-
-
     // Start sending digitizer events
-    xf86PostMotionEventP(pInfo->dev, 1, 0, 2, valuators);
+    xf86PostMotionEventP(pInfo->dev, 1, 0, 5, valuators);
+
+    // Send button events (including stylus)
+    for (unsigned int button = 0; button < 20; ++button) {
+        mask = 1u << button;
+        if ((mask & common->oldState.buttons) != (mask & state->buttons)) {
+            // Send a button
+        }
+    }
 }
 
 void parseAbsEvent(struct KuriCommonRec* common, struct input_event* event) {
@@ -77,6 +83,7 @@ void parseAbsEvent(struct KuriCommonRec* common, struct input_event* event) {
             break;
 
         case ABS_RZ:
+            common->state->rotation = event->value;
             break;
 
         case ABS_TILT_X:
@@ -89,6 +96,54 @@ void parseAbsEvent(struct KuriCommonRec* common, struct input_event* event) {
 
         case ABS_PRESSURE:
             common->state->pressure = event->value;
+            break;
+
+        default:
+            break;
+    }
+}
+
+int mod_buttons(int buttons, int btn, int state) {
+    int mask;
+
+    if (btn >= sizeof(int) * 8) {
+        return buttons;
+    }
+
+    mask = 1 >> btn;
+    if (state) {
+        buttons |= mask;
+    } else {
+        buttons &= ~mask;
+    }
+
+    return buttons;
+}
+
+void parseKeyEvent(struct KuriCommonRec* common, struct input_event* event) {
+    struct KuriDeviceState* state = common->state;
+
+    switch (event->code) {
+        case BTN_TOOL_PEN:
+        case BTN_TOOL_PENCIL:
+        case BTN_TOOL_BRUSH:
+        case BTN_TOOL_AIRBRUSH:
+            xf86Msg(X_INFO, "Stylus detected\n");
+            state->proximity = (event->value != 0);
+            break;
+    }
+
+    switch (event->code) {
+        case BTN_STYLUS:
+            state->buttons = mod_buttons(state->buttons, 1, event->value);
+            break;
+
+        case BTN_STYLUS2:
+            state->buttons = mod_buttons(state->buttons, 2, event->value);
+            break;
+
+        case BTN_STYLUS3:
+            state->buttons = mod_buttons(state->buttons, 3, event->value);
             break;
 
         default:
@@ -112,7 +167,7 @@ void parseSynEvent(InputInfoPtr pInfo, const struct input_event* event) {
         } else if (handledEvent->type == EV_REL) {
             xf86Msg(X_INFO, "REL Message\n");
         } else if (handledEvent->type == EV_KEY) {
-            xf86Msg(X_INFO, "KEY Message\n");
+            parseKeyEvent(common, handledEvent);
         }
     }
 
@@ -145,6 +200,8 @@ void parseEvent(InputInfoPtr pInfo, const struct input_event* event) {
 
 int parsePacket(InputInfoPtr pInfo, const unsigned char* data, int len) {
     struct input_event event;
+    struct KuriDeviceRec* priv = (struct KuriDeviceRec*)pInfo->private;
+    struct KuriCommonRec* common = priv->common;
 
     if (len < sizeof(struct input_event)) {
         return 0;
@@ -152,6 +209,8 @@ int parsePacket(InputInfoPtr pInfo, const unsigned char* data, int len) {
 
     memcpy(&event, data, sizeof(event));
     parseEvent(pInfo, &event);
+    common->oldState = *common->state;
+
     return sizeof(struct input_event);
 }
 
@@ -227,6 +286,16 @@ static int initAxes(DeviceIntPtr pDev) {
     min_res = 0;
     max_res = priv->resolutionY;
     res = priv->resolutionY;
+    mode = Absolute;
+
+    initAxis(pInfo->dev, index, label, min, max, res, min_res, max_res, mode);
+
+    // Third valuator: pressure
+    index = 2;
+    label = XIGetKnownProperty(AXIS_LABEL_PROP_ABS_PRESSURE);
+    min = 0;
+    max = priv->maxCurve;
+    min_res = max_res = res = 1;
     mode = Absolute;
 
     initAxis(pInfo->dev, index, label, min, max, res, min_res, max_res, mode);
