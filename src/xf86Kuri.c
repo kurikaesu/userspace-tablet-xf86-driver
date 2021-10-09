@@ -106,11 +106,13 @@ void dispatchEvents(InputInfoPtr pInfo) {
 
     // Send a proximity event
     if (state->proximity) {
-        if ((pInfo->dev->proximity && !common->oldState.proximity)) {
+        if (pInfo->dev->proximity && !common->oldState.proximity) {
+            xf86Msg(X_INFO, "Posting proximity entered event\n");
             xf86PostProximityEventP(pInfo->dev, 1, 0, 5, valuators);
         }
     } else {
-        if (common->oldState.proximity) {
+        if (pInfo->dev->proximity && common->oldState.proximity) {
+            xf86Msg(X_INFO, "Posting proximity left event\n");
             xf86PostProximityEventP(pInfo->dev, 0, 0, 5, valuators);
         }
     }
@@ -118,13 +120,17 @@ void dispatchEvents(InputInfoPtr pInfo) {
     // Start sending digitizer events
     xf86PostMotionEventP(pInfo->dev, 1, 0, 5, valuators);
 
-    // Send button events (including stylus)
-    for (unsigned int button = 0; button < 20; ++button) {
-        mask = 1u << button;
-        if ((mask & common->oldState.buttons) != (mask & state->buttons)) {
-            // Send a button
-            xf86Msg(X_INFO, "Sending button %d\n", button);
-            sendAction(pInfo, (mask != 0), priv->keys[button], 256, 0, 5, valuators);
+    if (common->oldState.buttons != state->buttons || (!common->oldState.proximity && !state->buttons)) {
+        // Send button events (including stylus)
+        for (unsigned int button = 0; button < state->buttons; ++button) {
+            mask = 1u << button;
+            xf86Msg(X_INFO, "Old state: %d new state: %d\n", (mask & common->oldState.buttons),
+                    (mask & state->buttons));
+            if ((mask & common->oldState.buttons) != (mask & state->buttons)) {
+                // Send a button
+                xf86Msg(X_INFO, "Sending button %d\n", button);
+                sendAction(pInfo, (mask != 0), priv->keys[button], 256, 0, 5, valuators);
+            }
         }
     }
 }
@@ -179,14 +185,11 @@ int mod_buttons(int buttons, int btn, int state) {
 void parseKeyEvent(struct KuriCommonRec* common, struct input_event* event) {
     struct KuriDeviceState* state = common->state;
 
-    xf86Msg(X_INFO, "Msg code: %d value: %d\n", event->code, event->value);
-
     switch (event->code) {
         case BTN_TOOL_PEN:
         case BTN_TOOL_PENCIL:
         case BTN_TOOL_BRUSH:
         case BTN_TOOL_AIRBRUSH:
-            xf86Msg(X_INFO, "Stylus detected\n");
             state->proximity = (event->value != 0);
             break;
     }
@@ -225,7 +228,6 @@ void parseSynEvent(InputInfoPtr pInfo, const struct input_event* event) {
         } else if (handledEvent->type == EV_REL) {
             xf86Msg(X_INFO, "REL Message\n");
         } else if (handledEvent->type == EV_KEY) {
-            xf86Msg(X_INFO, "KEY Message\n");
             parseKeyEvent(common, handledEvent);
         } else if (handledEvent->type == EV_SYN) {
             // No operation here

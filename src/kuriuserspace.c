@@ -46,12 +46,16 @@ static int kuriAllocate(InputInfoPtr pInfo) {
 
     // Just hardcoding some dummy values for testing
     priv->naxes = 6;
-    priv->maxCurve = 8191;
 
     priv->nPressCtrl[0] = 0;
     priv->nPressCtrl[1] = 0;
     priv->nPressCtrl[2] = 100;
     priv->nPressCtrl[3] = 100;
+
+    // Set the default button and shortcut values
+    for (int i = 0; i < KURI_MAX_BUTTONS; ++i) {
+        priv->buttonDefault[i] = i + 1;
+    }
 
     priv->common = kuriNewCommon();
     priv->common->state = calloc(1, sizeof(struct KuriDeviceState));
@@ -114,11 +118,12 @@ int getRanges(InputInfoPtr pInfo) {
     }
 
     if (ISBITSET(abs, ABS_PRESSURE) && !ioctl(pInfo->fd, EVIOCGABS(ABS_PRESSURE), &absinfo)) {
-
+        priv->maxCurve = absinfo.maximum;
     }
 
     xf86Msg(X_INFO, "%s: Size probed to X: %d Y: %d\n", pInfo->name, priv->bottomX, priv->bottomY);
     xf86Msg(X_INFO, "%s: Resolution probed to X: %d Y: %d\n", pInfo->name, priv->resolutionX, priv->resolutionY);
+    xf86Msg(X_INFO, "%s: Maximum pressure probed to: %d\n", pInfo->name, priv->maxCurve);
 
     return Success;
 }

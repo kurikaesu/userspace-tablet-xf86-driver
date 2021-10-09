@@ -62,6 +62,7 @@ struct KuriDeviceRec {
     struct KuriCommonRec* common;
 
     int nPressCtrl[4];
+    int buttonDefault[KURI_MAX_BUTTONS];
 };
 
 struct KuriCommonRec {
