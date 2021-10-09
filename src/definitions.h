@@ -27,6 +27,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #define BUFFER_SIZE 256
 #define MAX_EVENTS 1024
+#define KURI_MAX_BUTTONS 64
 
 struct KuriDeviceState {
     InputInfoPtr pInfo;
@@ -53,6 +54,8 @@ struct KuriDeviceRec {
     int resolutionX;
     int resolutionY;
     int maxCurve;
+
+    unsigned keys[KURI_MAX_BUTTONS][256];
 
     int naxes;
 

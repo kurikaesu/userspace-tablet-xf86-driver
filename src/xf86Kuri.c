@@ -48,6 +48,44 @@ static void kuriDevReadInput(InputInfoPtr pInfo) {
     }
 }
 
+void sendAction(InputInfoPtr pInfo, int press, unsigned int *keys, int nkeys, int first_val, int num_val, int* valuators) {
+    struct KuriDeviceRec* priv = (struct KuriDeviceRec*)pInfo->private;
+
+    for (int i = 0; press && i < nkeys; ++i) {
+        unsigned int action = keys[i];
+
+        if (!action) {
+            break;
+        }
+
+        switch ((action & AC_TYPE)) {
+            case AC_BUTTON:
+                {
+                    int btnNumber = (action & AC_CODE);
+                    int isPress = (action & AC_KEYBTNPRESS);
+                    xf86PostButtonEventP(pInfo->dev, 1, btnNumber, isPress, first_val, num_val, valuators);
+                }
+                break;
+
+            case AC_KEY:
+
+                break;
+        }
+    }
+
+    for (int i = 0; !press && i < nkeys; ++i) {
+        unsigned int action = keys[i];
+
+        switch ((action & AC_TYPE)) {
+            case AC_BUTTON:
+                break;
+
+            case AC_KEY:
+                break;
+        }
+    }
+}
+
 void dispatchEvents(InputInfoPtr pInfo) {
     int valuators[6];
     unsigned int mask;
@@ -61,6 +99,22 @@ void dispatchEvents(InputInfoPtr pInfo) {
     valuators[3] = state->tiltx;
     valuators[4] = state->tilty;
 
+    if (!state->proximity) {
+        valuators[0] = common->oldState.x;
+        valuators[1] = common->oldState.y;
+    }
+
+    // Send a proximity event
+    if (state->proximity) {
+        if ((pInfo->dev->proximity && !common->oldState.proximity)) {
+            xf86PostProximityEventP(pInfo->dev, 1, 0, 5, valuators);
+        }
+    } else {
+        if (common->oldState.proximity) {
+            xf86PostProximityEventP(pInfo->dev, 0, 0, 5, valuators);
+        }
+    }
+
     // Start sending digitizer events
     xf86PostMotionEventP(pInfo->dev, 1, 0, 5, valuators);
 
@@ -69,6 +123,8 @@ void dispatchEvents(InputInfoPtr pInfo) {
         mask = 1u << button;
         if ((mask & common->oldState.buttons) != (mask & state->buttons)) {
             // Send a button
+            xf86Msg(X_INFO, "Sending button %d\n", button);
+            sendAction(pInfo, (mask != 0), priv->keys[button], 256, 0, 5, valuators);
         }
     }
 }
@@ -110,7 +166,7 @@ int mod_buttons(int buttons, int btn, int state) {
         return buttons;
     }
 
-    mask = 1 >> btn;
+    mask = 1 << btn;
     if (state) {
         buttons |= mask;
     } else {
@@ -122,6 +178,8 @@ int mod_buttons(int buttons, int btn, int state) {
 
 void parseKeyEvent(struct KuriCommonRec* common, struct input_event* event) {
     struct KuriDeviceState* state = common->state;
+
+    xf86Msg(X_INFO, "Msg code: %d value: %d\n", event->code, event->value);
 
     switch (event->code) {
         case BTN_TOOL_PEN:
@@ -167,7 +225,12 @@ void parseSynEvent(InputInfoPtr pInfo, const struct input_event* event) {
         } else if (handledEvent->type == EV_REL) {
             xf86Msg(X_INFO, "REL Message\n");
         } else if (handledEvent->type == EV_KEY) {
+            xf86Msg(X_INFO, "KEY Message\n");
             parseKeyEvent(common, handledEvent);
+        } else if (handledEvent->type == EV_SYN) {
+            // No operation here
+        } else {
+            xf86Msg(X_INFO, "Received unhandled event of type %d\n", handledEvent->type);
         }
     }
 
@@ -306,12 +369,19 @@ static int initAxes(DeviceIntPtr pDev) {
 static int kuriDevProc(DeviceIntPtr pDev, int what) {
     InputInfoPtr pInfo = (InputInfoPtr)pDev->public.devicePrivate;
     struct KuriDeviceRec* priv = (struct KuriDeviceRec*)pInfo->private;
+    unsigned char butmap[KURI_MAX_BUTTONS + 1];
     Atom axis_labels[MAX_VALUATORS] = {0};
+    Atom btn_labels[KURI_MAX_BUTTONS] = {0};
 
     int rc = !Success;
 
     switch (what) {
         case DEVICE_INIT:
+            if (InitButtonClassDeviceStruct(pInfo->dev, KURI_MAX_BUTTONS, btn_labels, butmap) == FALSE) {
+                xf86Msg(X_ERROR, "%s: unable to allocate Button class device\n", pInfo->name);
+                goto out;
+            }
+
             if (InitFocusClassDeviceStruct(pInfo->dev) == FALSE) {
                 xf86Msg(X_ERROR, "%s: unable to init Focus class device\n", pInfo->name);
                 goto out;
