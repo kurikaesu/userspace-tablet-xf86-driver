@@ -102,6 +102,18 @@ void dispatchEvents(InputInfoPtr pInfo) {
     if (!state->proximity) {
         valuators[0] = common->oldState.x;
         valuators[1] = common->oldState.y;
+        state->pressure = 0;
+    }
+
+    // Check to see if pressure was actually set and if so, we enable the tip button (1)
+    if (state->pressure < 32) {
+        state->buttons &= ~1;
+
+        if (common->oldState.buttons & 1) {
+            // maybe not set if within tolerance
+        }
+    } else {
+        state->buttons |= 1;
     }
 
     // Send a proximity event
