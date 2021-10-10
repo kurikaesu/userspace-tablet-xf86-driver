@@ -55,6 +55,7 @@ void sendAction(InputInfoPtr pInfo, int press, unsigned int *keys, int nkeys, in
         unsigned int action = keys[i];
 
         if (!action) {
+            xf86Msg(X_INFO, "No action set. Bailing!\n");
             break;
         }
 

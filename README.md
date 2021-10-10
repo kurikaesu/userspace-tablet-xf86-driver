@@ -12,9 +12,7 @@ Ultimately this X11 input driver is designed to handle a specific set of message
 
 ## Todo
 - Finish implementing the p0 version of the driver
-  - Cursor movement
-  - Pen touch & click events
-  - Pen button events
+  - Bind the stylus tip and buttons to default actions
 - p1 version
   - Support tablet orientation (ex. Left-handed mode)
   - Apply binding configuration generated/used by the user-space driver and GUI. This way the user-space driver no longer has to apply the bindings and can send raw event codes like BTN_0 instead.
